@@ -10,6 +10,7 @@ import json
 from rdflib import Graph, Namespace, RDF, RDFS, Literal, URIRef
 from rdflib.serializer import Serializer
 import rdfextras
+from math import log
 
 from app import app
 
@@ -117,8 +118,8 @@ def build_graph(G, name, source=None, target=None, query=None, intermediate = No
             G.add_node(intermediate_binding, label=intermediate_binding, type=intermediate, uri=result[intermediate]["value"])
             G.add_node(target_binding, label=target_binding, type=target, uri=result[target]["value"])
             
-            G.add_edge(source_binding, intermediate_binding, value=10)
-            G.add_edge(intermediate_binding, target_binding, value=10)
+            G.add_edge(source_binding, intermediate_binding)
+            G.add_edge(intermediate_binding, target_binding)
 
     #print "Done"
 
@@ -150,6 +151,10 @@ def build_activity_graph(activity_uri, activity_id):
             names[n] = label
         else :
             names[n] = nd['label']
+            
+    
+    
+    
     
     nx.set_node_attributes(G,'label', names)
     
@@ -159,13 +164,68 @@ def build_activity_graph(activity_uri, activity_id):
     nx.set_node_attributes(G,'degree',deg)
     
     
-    g_json = json_graph.node_link_data(G) # node-link format to serialize
+    outG = nx.ego_graph(G,origin_node_id,50)
+    inG = nx.ego_graph(G.reverse(),origin_node_id,50)
+    
+    inG = inG.reverse()
+    
+    sG = nx.compose(outG,inG)
+    
+    
+            
+    
+    assign_weights(sG, [])
+            
+            
+    print sG.edges(data=True)
+    
+    
+    
+    g_json = json_graph.node_link_data(sG) # node-link format to serialize
 
-
+    
     return g_json
 
 
-
+def assign_weights(sG, next_nodes = []):
+    weight_dict = {}
+    new_next_nodes = []
+    if next_nodes == []:
+        for (s,t) in sG.edges():
+            if sG.in_degree(s) == 0 :
+                weight_dict[(s,t)] = log(10)
+                next_nodes.append(t)
+        # Loop!
+        nx.set_edge_attributes(sG,'value',weight_dict)
+        assign_weights(sG, next_nodes)
+    else :
+        for node in next_nodes :
+            out_degree = sG.out_degree(node)
+            
+            if out_degree == 0 :
+                print "No more outgoing edges for ", node
+                continue
+            
+            incoming = sG.in_edges([node],data=True)
+            
+            accumulated_weight = 0
+            for (s,t,data) in incoming :
+                accumulated_weight += data['value']
+                
+            out_weight = accumulated_weight/out_degree
+            
+            outgoing = sG.out_edges([node])
+            
+            for (s,t) in outgoing :
+                weight_dict[(s,t)] = out_weight
+                new_next_nodes.append(t)
+        
+        nx.set_edge_attributes(sG,'value',weight_dict)
+        
+        if new_next_nodes != [] :
+            assign_weights(sG, new_next_nodes)
+        else :
+            return
         
     
     

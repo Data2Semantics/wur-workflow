@@ -94,7 +94,7 @@ function drawActivityGraph(graph) {
 
 function drawSankeyDiagram(graph) {
 var margin = {top: 1, right: 1, bottom: 6, left: 1},
-    width = 900 - margin.left - margin.right,
+    width = 2000 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
 
 var formatNumber = d3.format(",.0f"),
